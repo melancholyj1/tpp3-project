@@ -19,17 +19,83 @@ html {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     cursor: pointer;
 }
+/* Узкая боковая панель (как в Google Maps) */
+.nav-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 70px;
+    background: white;
+    z-index: 1001;
+    /* Поверх карты */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 20px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    gap: 30px;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    color: #555;
+    transition: 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.nav-btn span {
+    font-size: 10px;
+    font-family: sans-serif;
+}
+
+.nav-btn:hover {
+    color: #007bff;
+}
+
+/* Плавающая строка поиска по карте */
+.map-search-container {
+    position: absolute;
+    top: 20px;
+    left: 90px;
+    /* Отступ от узкой панели */
+    z-index: 1000;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    padding: 5px 20px;
+    width: 350px;
+    transition: box-shadow 0.3s;
+}
+
+.map-search-container:focus-within {
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.map-search-container input {
+    border: none;
+    outline: none;
+    padding: 10px;
+    width: 100%;
+    font-size: 16px;
+}
 /* Боковая панель (Левая) */
 .sidebar {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 80px;
+    left: 90px;
     width: 320px;
-    max-height: 85vh;
+    max-height: 80vh;
     overflow-y: auto;
-
-    /* Эффект глубокого матового стекла */
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2));
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.4));
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.6);
@@ -37,6 +103,20 @@ html {
     padding: 24px;
     z-index: 1000;
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+
+    /* Анимация появления */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: translateX(-20px);
+    pointer-events: none;
+    /* Чтобы не кликалась, когда скрыта */
+}
+
+/* Класс, который делает панель видимой */
+.sidebar.open {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
 /* Красивый скроллбар для меню */
