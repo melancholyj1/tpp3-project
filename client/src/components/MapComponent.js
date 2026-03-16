@@ -79,13 +79,22 @@ const MapComponent = ({ socket, searchedLocation }) => {
         return () => navigator.geolocation.clearWatch(watchId);
     }, [hasAcquiredInitialPosition, socket]); // Зависит от первоначального получения
 
-    // 3. Слушаем координаты других пользователей
+    // 3. Слушаем координаты других пользователей (ОПТИМИЗИРОВАНО)
     useEffect(() => {
-        if (socket) {
-            socket.on('updateLocations', (users) => {
-                setFriendsLocations(users);
-            });
-        }
+        if (!socket) return;
+
+        // Выносим функцию отдельно
+        const handleUpdateLocations = (users) => {
+            setFriendsLocations(users);
+        };
+
+        socket.on('updateLocations', handleUpdateLocations);
+
+        // КРИТИЧЕСКИ ВАЖНО: Функция очистки. Удаляем слушателя перед новым рендером.
+        // Именно отсутствие этой строчки сжирало твою оперативку!
+        return () => {
+            socket.off('updateLocations', handleUpdateLocations);
+        };
     }, [socket]);
 
     // Пока не получим первую координату, не рисуем карту, иначе Leaflet выдаст ошибку
@@ -123,7 +132,7 @@ const MapComponent = ({ socket, searchedLocation }) => {
 
             {/* Маркеры остальных пользователей */}
             {friendsLocations.map((user) => (
-                user.location && user.location.lat && user.id !== socket?.id ? (
+                user.location && user.location.lat ? ( // Убрали кривую проверку socket.id
                     <Marker
                         key={user.id}
                         position={[user.location.lat, user.location.lng]}

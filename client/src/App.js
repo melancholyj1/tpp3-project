@@ -4,7 +4,7 @@ import Auth from './components/Auth';
 import MapComponent from './components/MapComponent';
 import Sidebar from './components/Sidebar';
 import Chat from './components/Chat';
-import MapSearch from './components/MapSearch'; // НОВОЕ
+import MapSearch from './components/MapSearch';
 
 import './App.css';
 import './mobile.css';
@@ -13,10 +13,11 @@ function App() {
   const [token, setToken] = useState(null);
   const [socket, setSocket] = useState(null);
   const [activeChatFriend, setActiveChatFriend] = useState(null);
-
-  // НОВЫЕ СОСТОЯНИЯ
   const [isFriendsMenuOpen, setIsFriendsMenuOpen] = useState(false);
   const [searchedLocation, setSearchedLocation] = useState(null);
+
+  // НОВОЕ: Состояние для всплывающего уведомления
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('zenly_token');
@@ -32,6 +33,27 @@ function App() {
     return () => { if (newSocket) newSocket.disconnect(); };
   }, [token]);
 
+  // НОВОЕ: Глобальный слушатель входящих сообщений
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReceiveMessage = (msgData) => {
+      // Если чат с этим отправителем СЕЙЧАС НЕ ОТКРЫТ — показываем пуш-уведомление
+      if (!activeChatFriend || activeChatFriend._id !== msgData.senderId) {
+        setNotification(`Новое сообщение от: ${msgData.senderName}`);
+
+        // Прячем уведомление через 4 секунды
+        setTimeout(() => setNotification(null), 4000);
+      }
+    };
+
+    socket.on('receiveMessage', handleReceiveMessage);
+
+    return () => {
+      socket.off('receiveMessage', handleReceiveMessage);
+    };
+  }, [socket, activeChatFriend]); // Зависит от activeChatFriend, чтобы знать, кто сейчас открыт
+
   const handleLogout = () => {
     localStorage.removeItem('zenly_token');
     setToken(null);
@@ -45,40 +67,43 @@ function App() {
       ) : (
         <div className="main-app">
 
-          {/* НОВАЯ УЗКАЯ ПАНЕЛЬ НАВИГАЦИИ */}
+          {/* НОВОЕ: Рендер всплывающего уведомления */}
+          {notification && (
+            <div className="toast-notification">
+              🔔 {notification}
+            </div>
+          )}
+
           <div className="nav-sidebar">
-            <button className="nav-btn" style={{ marginTop: '10px' }}>
-              ☰
-            </button>
-
-            <button
-              className="nav-btn"
-              onClick={() => setIsFriendsMenuOpen(!isFriendsMenuOpen)}
-              title="Друзья"
-            >
-              👥
-              <span>Друзья</span>
-            </button>
-
-            <button className="nav-btn" onClick={handleLogout} style={{ marginTop: 'auto', marginBottom: '20px' }} title="Выход">
-              🚪
-              <span>Выйти</span>
-            </button>
+            <button className="nav-btn" style={{ marginTop: '10px' }} title="Меню">☰</button>
+            <button className="nav-btn" title="Сохранено">🔖<span>Сохранено</span></button>
+            <button className="nav-btn active-icon" onClick={() => setIsFriendsMenuOpen(!isFriendsMenuOpen)} title="Друзья">👥<span>Друзья</span></button>
+            <button className="nav-btn" title="Недавнее">🕒<span>Недавнее</span></button>
+            <button className="nav-btn" onClick={handleLogout} style={{ marginTop: 'auto', marginBottom: '20px' }} title="Выход">🚪<span>Выйти</span></button>
           </div>
 
-          {/* СТРОКА ПОИСКА */}
-          <MapSearch onLocationFound={(coords) => setSearchedLocation(coords)} />
+          <div className="top-search-bar-parent">
+            <MapSearch onLocationFound={(coords) => setSearchedLocation(coords)} />
+            <div className="top-bar-placeholders">
+              <button className="directions-btn-placeholder" title="Маршруты">⤴️</button>
+              <div className="language-dropdown-placeholder" title="Выбор языка">Pу <span className="dropdown-arrow">▼</span></div>
+            </div>
+          </div>
 
-          {/* ПАНЕЛЬ ДРУЗЕЙ (Обернута в div для управления анимацией) */}
           <div className={`sidebar ${isFriendsMenuOpen ? 'open' : ''}`}>
-            <Sidebar token={token} onSelectFriend={(friend) => setActiveChatFriend(friend)} />
+            <Sidebar token={token} onSelectFriend={(friend) => setActiveChatFriend(friend)} isOpen={isFriendsMenuOpen} />
           </div>
 
           {activeChatFriend && (
-            <Chat friend={activeChatFriend} socket={socket} onClose={() => setActiveChatFriend(null)} />
+            <Chat 
+              friend={activeChatFriend} 
+              socket={socket} 
+              token={token} /* <--- ДОБАВИЛИ ТОКЕН СЮДА */
+              onClose={() => setActiveChatFriend(null)} 
+            />
           )}
 
-          <div className="map-container" style={{ marginLeft: '70px' }}> {/* Сдвигаем карту от панели */}
+          <div className="map-container" style={{ marginLeft: '70px' }}>
             <MapComponent socket={socket} searchedLocation={searchedLocation} />
           </div>
         </div>

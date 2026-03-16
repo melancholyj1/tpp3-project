@@ -1,3 +1,5 @@
+const messagesRoutes = require('./routes/messages');
+const Message = require('./models/Message'); // Модель базы данных
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -14,6 +16,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: 'http://localhost:3000' }));
+app.use('/api/messages', messagesRoutes);
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -55,44 +58,56 @@ io.on('connection', async (socket) => {
     const friendsList = userDoc ? userDoc.friends.map(id => id.toString()) : [];
 
     // 3. Сохраняем пользователя в оперативную память
-    activeUsers[socket.user.id] = {
-        id: socket.user.id,
-        username: socket.user.username,
-        location: null,
-        friends: friendsList
-    };
+activeUsers[socket.user.id] = {
+    id: socket.user.id,
+    username: socket.user.username,
+    location: null,
+    friends: friendsList
+  };
 
-    // --- ОБРАБОТКА КООРДИНАТ (РАДАР) ---
-    socket.on('sendLocation', (location) => {
-        if (activeUsers[socket.user.id]) {
-            activeUsers[socket.user.id].location = location;
-        }
+  // [ИСПРАВЛЕНИЕ КАРТЫ]: Моментально отправляем новичку координаты его друзей, которые УЖЕ онлайн и стоят на карте
+  const myRadar = Object.values(activeUsers).filter(u => friendsList.includes(u.id) && u.location);
+  socket.emit('updateLocations', myRadar);
 
-        // Собираем тех, кого должен видеть текущий пользователь на своей карте
-        const myRadar = Object.values(activeUsers).filter(u => friendsList.includes(u.id) && u.location);
-        socket.emit('updateLocations', myRadar);
+  // --- ОБРАБОТКА КООРДИНАТ (РАДАР) ---
+  socket.on('sendLocation', (location) => {
+    if (activeUsers[socket.user.id]) {
+      activeUsers[socket.user.id].location = location;
+    }
+    const myRadar = Object.values(activeUsers).filter(u => friendsList.includes(u.id) && u.location);
+    socket.emit('updateLocations', myRadar);
 
-        // Рассылаем наши новые координаты ТОЛЬКО тем друзьям, кто сейчас онлайн
-        friendsList.forEach(friendId => {
-            if (activeUsers[friendId]) {
-                const friendOfFriendList = activeUsers[friendId].friends;
-                const hisRadar = Object.values(activeUsers).filter(u => friendOfFriendList.includes(u.id) && u.location);
-                // Отправляем в личную комнату друга
-                socket.to(friendId).emit('updateLocations', hisRadar);
-            }
-        });
+    friendsList.forEach(friendId => {
+      if (activeUsers[friendId]) {
+        const friendOfFriendList = activeUsers[friendId].friends;
+        const hisRadar = Object.values(activeUsers).filter(u => friendOfFriendList.includes(u.id) && u.location);
+        socket.to(friendId).emit('updateLocations', hisRadar);
+      }
     });
+  });
 
-    // --- ОБРАБОТКА ЧАТА ---
-    socket.on('sendMessage', (data) => {
-        // data содержит { receiverId, text }
-        // Отправляем сообщение строго в личную комнату получателя
-        socket.to(data.receiverId).emit('receiveMessage', {
-            senderId: socket.user.id,
-            text: data.text,
-            timestamp: new Date()
-        });
-    });
+  // --- ОБРАБОТКА ЧАТА ---
+  socket.on('sendMessage', async (data) => {
+    try {
+      // 1. Сохраняем сообщение навсегда в базу данных (MongoDB)
+      const newMsg = new Message({
+        sender: socket.user.id,
+        receiver: data.receiverId,
+        text: data.text
+      });
+      await newMsg.save();
+
+      // 2. Отправляем сообщение получателю в реальном времени
+      socket.to(data.receiverId).emit('receiveMessage', {
+        senderId: socket.user.id,
+        senderName: socket.user.username,
+        text: data.text,
+        timestamp: newMsg.timestamp
+      });
+    } catch (err) {
+      console.error("Ошибка сохранения сообщения:", err);
+    }
+  });
 
     // --- ОТКЛЮЧЕНИЕ ---
     socket.on('disconnect', () => {
