@@ -75,7 +75,7 @@ function App() {
           )}
 
           <div className="nav-sidebar">
-            <button className="nav-btn" style={{ marginTop: '10px' }} title="Меню">☰</button>
+            <button className="nav-btn" style={{ marginTop: '25px' }} title="Меню">☰</button>
             <button className="nav-btn" title="Сохранено">🔖<span>Сохранено</span></button>
             <button className="nav-btn active-icon" onClick={() => setIsFriendsMenuOpen(!isFriendsMenuOpen)} title="Друзья">👥<span>Друзья</span></button>
             <button className="nav-btn" title="Недавнее">🕒<span>Недавнее</span></button>

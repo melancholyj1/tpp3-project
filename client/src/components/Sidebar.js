@@ -75,6 +75,20 @@ const Sidebar = ({ token, onSelectFriend, isOpen }) => {
         }
     };
 
+    const removeFriend = async (id, e) => {
+        e.stopPropagation(); // Чтобы при клике на удаление не открывался чат
+
+        // Запрашиваем подтверждение, чтобы не удалить случайно
+        if (!window.confirm('Точно удалить этого пользователя из друзей?')) return;
+
+        try {
+            await axios.post('http://localhost:5000/api/friends/remove', { friendId: id }, authConfig);
+            loadFriendsData(); // Сразу обновляем список (друг исчезнет)
+        } catch (err) {
+            console.error('Ошибка удаления из друзей', err);
+        }
+    };
+
     return (
         <div className="sidebar-internal-content">
             <h3>Поиск друзей 👥</h3>
@@ -131,21 +145,35 @@ const Sidebar = ({ token, onSelectFriend, isOpen }) => {
                 </>
             )}
 
-            <h4 style={{ marginTop: '15px' }}>Мои друзья</h4>
-            {isLoading ? (
-                <p style={{ textAlign: 'center', fontSize: '14px' }}>Загрузка... 🛰️</p>
-            ) : (
-                friends.length === 0 ? <p style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>У вас пока нет друзей.</p> : (
-                    friends.map(friend => (
-                        <div key={friend._id} className="friend-item" onClick={() => onSelectFriend(friend)}>
-                            <span>🟢 {friend.username}</span>
-                            <button style={{ fontSize: '12px', background: 'transparent', border: '1px solid #007bff', color: '#007bff', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer' }}>
-                                Чат
-                            </button>
-                        </div>
-                    ))
-                )
-            )}
+            {/* Список друзей */}
+      <h4 style={{marginTop: '15px'}}>Мои друзья</h4>
+      {isLoading ? (
+        <p style={{textAlign: 'center', fontSize: '14px'}}>Загрузка... 🛰️</p>
+      ) : (
+        friends.length === 0 ? <p style={{textAlign: 'center', color: '#666', fontSize: '14px'}}>У вас пока нет друзей.</p> : (
+          friends.map(friend => (
+            <div key={friend._id} className="friend-item" onClick={() => onSelectFriend(friend)}>
+              <span>🟢 {friend.username}</span>
+              
+              {/* Обертка для кнопок, чтобы они стояли рядом */}
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button style={{fontSize: '12px', background: 'transparent', border: '1px solid #007bff', color: '#007bff', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer'}}>
+                  Чат
+                </button>
+                
+                {/* НОВАЯ КНОПКА УДАЛЕНИЯ */}
+                <button 
+                  onClick={(e) => removeFriend(friend._id, e)}
+                  style={{fontSize: '12px', background: 'transparent', border: '1px solid #d93025', color: '#d93025', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer'}}
+                  title="Удалить из друзей"
+                >
+                  ✖
+                </button>
+              </div>
+            </div>
+          ))
+        )
+      )}
         </div>
     );
 };

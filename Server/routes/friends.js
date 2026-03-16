@@ -74,5 +74,24 @@ router.get('/', authMiddleware, async (req, res) => {
         res.status(500).json({ error: 'Ошибка получения списка друзей' });
     }
 });
+// 5. Удаление из друзей
+router.post('/remove', authMiddleware, async (req, res) => {
+    try {
+        const { friendId } = req.body;
+        const myId = req.user.id;
 
+        // $pull удаляет указанный ID из массива
+        await User.findByIdAndUpdate(myId, {
+            $pull: { friends: friendId }
+        });
+
+        await User.findByIdAndUpdate(friendId, {
+            $pull: { friends: myId }
+        });
+
+        res.json({ message: 'Пользователь удален из друзей' });
+    } catch (err) {
+        res.status(500).json({ error: 'Ошибка при удалении из друзей' });
+    }
+});
 module.exports = router;
