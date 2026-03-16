@@ -7,7 +7,10 @@ const userSchema = new mongoose.Schema({
         lat: { type: Number, default: null },
         lng: { type: Number, default: null }
     },
-    isOnline: { type: Boolean, default: false }
+    // Массив ID подтвержденных друзей
+    friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    // Массив ID тех, кто отправил заявку в друзья
+    friendRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 
 module.exports = mongoose.model('User', userSchema);
