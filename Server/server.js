@@ -9,18 +9,40 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken'); // НОВОЕ: для проверки токенов
 const User = require('./models/User'); // НОВОЕ: для запроса друзей из БД
 
+// --- КИБЕРБЕЗОПАСНОСТЬ: Подключаем новые модули ---
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
+
 const authRoutes = require('./routes/auth');
 const friendsRoutes = require('./routes/friends');
+const placesRoutes = require('./routes/places'); // НОВОЕ: Маршруты для Мест
 
 const app = express();
 const server = http.createServer(app);
+
+// КИБЕРБЕЗОПАСНОСТЬ: Базовые заголовки безопасности
+app.use(helmet()); 
+// Разрешаем картинкам грузиться для карт Leaflet и OSM (иначе helmet их заблокирует)
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 app.use(cors({ origin: 'http://localhost:3000' }));
 app.use('/api/messages', messagesRoutes);
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
+// КИБЕРБЕЗОПАСНОСТЬ: Защита базы данных от NoSQL инъекций
+app.use(mongoSanitize());
+
+// КИБЕРБЕЗОПАСНОСТЬ: Лимит запросов на авторизацию (защита от брутфорса)
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 20, // Ограничиваем до 20 запросов с одного IP
+    message: { error: 'Слишком много попыток входа, пожалуйста, попробуйте позже.' }
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/friends', friendsRoutes);
+app.use('/api/places', placesRoutes); // НОВОЕ: Подключаем роуты для мест
 
 const io = new Server(server, {
     cors: { origin: 'http://localhost:3000', methods: ['GET', 'POST'] }

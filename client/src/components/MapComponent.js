@@ -1,6 +1,6 @@
 // client/src/components/MapComponent.js
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -11,25 +11,55 @@ let DefaultIcon = L.icon({
     iconUrl: icon, shadowUrl: iconShadow,
     iconSize: [25, 41], iconAnchor: [12, 41]
 });
+
+// Иконка для СОХРАНЕННЫХ мест (желтая)
+let SavedIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-gold.png',
+    shadowUrl: iconShadow,
+    iconSize: [25, 41], iconAnchor: [12, 41]
+});
+
 L.Marker.prototype.options.icon = DefaultIcon;
 // ----------------------------
 
 // Координаты по умолчанию (например, центр Москвы)
 const defaultCenter = { lat: 55.7558, lng: 37.6173 };
 
-// Вспомогательный компонент для полета камеры при ПОИСКЕ
-const SearchMapCenter = ({ searchedLocation }) => {
+// Вспомогательный компонент для полета камеры при ПОИСКЕ ГРУППЫ МЕСТ
+const SearchMapCenter = ({ searchResults, onCenterChange }) => {
     const map = useMap();
     useEffect(() => {
-        // Если мы искали город, летим туда один раз
-        if (searchedLocation) {
-            map.flyTo([searchedLocation.lat, searchedLocation.lng], 12);
+        if (searchResults && searchResults.length > 0) {
+            if (searchResults.length === 1) {
+                map.flyTo([searchResults[0].lat, searchResults[0].lng], 14);
+            } else {
+                const bounds = L.latLngBounds(searchResults.map(res => [res.lat, res.lng]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
         }
-    }, [searchedLocation, map]);
+    }, [searchResults, map]);
+
+    // Непрерывно передаем центр карты наверх (для поиска POI)
+    useEffect(() => {
+        const handleMoveEnd = () => {
+            const center = map.getCenter();
+            if (onCenterChange) {
+                onCenterChange({ lat: center.lat, lng: center.lng });
+            }
+        };
+        map.on('moveend', handleMoveEnd);
+        // Отправляем первоначальный центр
+        handleMoveEnd();
+        
+        return () => {
+            map.off('moveend', handleMoveEnd);
+        };
+    }, [map, onCenterChange]);
+
     return null;
 };
 
-const MapComponent = ({ socket, searchedLocation }) => {
+const MapComponent = ({ socket, searchResults, savedPlaces = [], onSavePlace, onPlaceClick, onCenterChange }) => {
     const [myPosition, setMyPosition] = useState(null);
     const [friendsLocations, setFriendsLocations] = useState([]);
     const [hasAcquiredInitialPosition, setHasAcquiredInitialPosition] = useState(false);
@@ -118,8 +148,8 @@ const MapComponent = ({ socket, searchedLocation }) => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            {/* Только для полета камеры при поиске по всей планете */}
-            <SearchMapCenter searchedLocation={searchedLocation} />
+            {/* Только для полета камеры при поиске по всей планете и трекинга центра */}
+            <SearchMapCenter searchResults={searchResults} onCenterChange={onCenterChange} />
 
             {/* Твой маркер, только он движется, а карта нет */}
             {myPosition && (
@@ -132,9 +162,9 @@ const MapComponent = ({ socket, searchedLocation }) => {
 
             {/* Маркеры остальных пользователей */}
             {friendsLocations.map((user) => (
-                user.location && user.location.lat ? ( // Убрали кривую проверку socket.id
+                user.location && user.location.lat ? (
                     <Marker
-                        key={user.id}
+                        key={`friend-${user.id}`}
                         position={[user.location.lat, user.location.lng]}
                     >
                         <Tooltip permanent direction="top" offset={[0, -30]}>
@@ -142,6 +172,71 @@ const MapComponent = ({ socket, searchedLocation }) => {
                         </Tooltip>
                     </Marker>
                 ) : null
+            ))}
+
+            {/* Маркеры результатов поиска (Бары, Театры и т.д.) */}
+            {searchResults && searchResults.map((place, idx) => {
+                // Ищем по координатам, сохранен ли он
+                const isSaved = savedPlaces.some(p => Math.abs(p.lat - place.lat) < 0.0001 && Math.abs(p.lng - place.lng) < 0.0001);
+                return (
+                    <Marker 
+                        key={`search-${idx}`} 
+                        position={[place.lat, place.lng]}
+                        eventHandlers={{
+                            click: () => {
+                                if (onPlaceClick) onPlaceClick(place);
+                            }
+                        }}
+                    >
+                        <Popup>
+                            <div style={{ textAlign: 'center' }}>
+                                <strong>{place.name}</strong><br/>
+                                <span style={{ fontSize: '11px', color: '#666' }}>{place.address}</span><br/>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation(); // Предотвращаем двойные клики
+                                        onSavePlace(place);
+                                    }}
+                                    style={{ marginTop: '10px', cursor: 'pointer', background: isSaved ? '#ffdd57' : '#eee', border: '1px solid #ccc', borderRadius: '5px', padding: '5px 10px' }}
+                                >
+                                    {isSaved ? '⭐ Сохранено' : '⭐ Сохранить'}
+                                </button>
+                            </div>
+                        </Popup>
+                    </Marker>
+                );
+            })}
+
+            {/* Маркеры сохраненных мест (Отображаются всегда) */}
+            {savedPlaces && savedPlaces.map((place, idx) => (
+                <Marker 
+                    key={`saved-${idx}`} 
+                    position={[place.lat, place.lng]} 
+                    icon={SavedIcon}
+                    eventHandlers={{
+                        click: () => {
+                            if (onPlaceClick) onPlaceClick(place);
+                        }
+                    }}
+                >
+                    <Tooltip direction="top" offset={[0, -30]}>
+                        ⭐ {place.name}
+                    </Tooltip>
+                    <Popup>
+                        <div style={{ textAlign: 'center' }}>
+                            <strong>⭐ {place.name}</strong><br/>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSavePlace(place);
+                                }}
+                                style={{ marginTop: '5px', cursor: 'pointer', background: '#ffdd57', border: '1px solid #ccc', borderRadius: '5px' }}
+                            >
+                                Удалить из сохраненных
+                            </button>
+                        </div>
+                    </Popup>
+                </Marker>
             ))}
         </MapContainer>
     );
