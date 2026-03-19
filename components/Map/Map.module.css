@@ -1,0 +1,275 @@
+/* components/Map/Map.module.css — Стили карты */
+
+.mapWrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 1;
+}
+
+/* Оверлей сверху карты для поиска/меню */
+.mapOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 20px;
+  pointer-events: none;
+}
+
+.mapOverlay > * {
+  pointer-events: auto;
+}
+
+/* Кнопка "Моя локация" */
+.myLocationBtn {
+  position: absolute;
+  bottom: calc(var(--nav-height) + 24px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  color: var(--neon-blue);
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-card);
+}
+
+.myLocationBtn:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-neon);
+}
+
+.myLocationBtn:active {
+  transform: scale(0.95);
+}
+
+/* Кастомный маркер друга */
+.friendMarker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
+.markerAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  color: white;
+  position: relative;
+  transition: transform var(--transition-normal);
+}
+
+.markerAvatar::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 3px solid currentColor;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.markerAvatar.offline::before {
+  animation: none;
+  border-color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.markerName {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+/* Popup на маркере */
+.markerPopup {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--border-radius) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-family) !important;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.popupContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px;
+}
+
+.popupInfo h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.popupInfo p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.batteryIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8rem;
+}
+
+.batteryIcon.low { color: #ef4444; }
+.batteryIcon.mid { color: var(--neon-yellow); }
+.batteryIcon.high { color: var(--neon-green); }
+
+/* Мой маркер */
+.myMarker {
+  width: 20px;
+  height: 20px;
+  background: var(--neon-blue);
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Убираем дефолтные стили Leaflet popup */
+.mapWrapper :global(.leaflet-popup-content-wrapper) {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.mapWrapper :global(.leaflet-popup-tip) {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+.mapWrapper :global(.leaflet-popup-close-button) {
+  color: var(--text-secondary) !important;
+}
+
+/* Скрываем Leaflet attribution на мобильных для экономии места */
+@media (max-width: 480px) {
+  .mapWrapper :global(.leaflet-popup-content-wrapper) {
+    max-width: 260px;
+  }
+
+  .mapWrapper :global(.leaflet-control-attribution) {
+    font-size: 8px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* === Индикатор скорости === */
+.speedBadge {
+  position: absolute;
+  bottom: calc(var(--nav-height) + 80px + env(safe-area-inset-bottom, 0px));
+  left: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(10, 10, 15, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: var(--font-family);
+  box-shadow: var(--shadow-card);
+  animation: fadeIn 0.3s ease;
+}
+
+/* === GPS Error banner === */
+.gpsBanner {
+  position: absolute;
+  bottom: calc(var(--nav-height) + 24px + env(safe-area-inset-bottom, 0px));
+  left: 20px;
+  right: 80px;
+  z-index: 1000;
+  padding: 10px 14px;
+  background: rgba(251, 191, 36, 0.15);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 12px;
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: var(--font-family);
+  animation: fadeIn 0.3s ease;
+}
+
+/* === POI Popup === */
+.poiPopup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.poiPhoto {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.poiInfo h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.poiCategory {
+  font-size: 0.78rem;
+  color: var(--neon-purple);
+  margin-bottom: 2px;
+}
+
+.poiAddress {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.poiDistance {
+  font-size: 0.78rem;
+  color: var(--neon-blue);
+  margin-top: 2px;
+}
